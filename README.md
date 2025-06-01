@@ -1,98 +1,138 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Transaction Reconciliation System
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS application that compares transaction data between payment providers and internal systems to find missing transactions and data differences.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## What it does
 
-## Description
+- Upload two CSV files (source transactions and system transactions)
+- Find transactions that exist in one file but not the other
+- Detect differences in amounts and statuses between matching transactions
+- Get a detailed report of all discrepancies
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
-
+### Run the application
 ```bash
-$ npm install
+# Development mode
+npm run start:dev
+
 ```
 
-## Compile and run the project
+The API will be available at `http://localhost:8000`
 
-```bash
-# development
-$ npm run start
 
-# watch mode
-$ npm run start:dev
+## How to use
 
-# production mode
-$ npm run start:prod
+**POST** `/conciliation/reconcile`
+
+Upload 2 CSV files using a form or API client like Postman.
+
+### CSV File Format
+
+**Source file (provider data):**
+```csv
+providerTransactionId,email,userId,provider,amount,currency,status,transactionType,paymentMethod,createdAt,updatedAt,providerReference,fraudRisk,details_invoiceId,details_customerName,details_description
+txn_12345,user@example.com,user123,stripe,100.50,USD,completed,payment,card,2024-01-15T10:00:00Z,2024-01-15T10:01:00Z,ref123,low,inv456,John Doe,Payment for order
 ```
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+**System file (internal data):**
+```csv
+transactionId,userId,amount,currency,status,paymentMethod,createdAt,updatedAt,referenceId,metadata_orderId,metadata_description
+txn_12345,user123,100.50,USD,completed,card,2024-01-15T10:00:00Z,2024-01-15T10:01:00Z,ref123,inv456,Payment for order
 ```
 
-## Deployment
+### Response
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+You'll get a JSON response with three sections:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```json
+{
+  "missing_in_internal": [
+    {
+      "providerTransactionId": "txn_99999",
+      "amount": 200.00,
+      "currency": "USD",
+      "status": "succeeded"
+    }
+  ],
+  "missing_in_source": [
+    {
+      "transactionId": "txn_77777",
+      "amount": 50.00,
+      "currency": "USD",
+      "status": "completed"
+    }
+  ],
+  "mismatched_transactions": [
+    {
+      "transactionId": "txn_12345",
+      "discrepancies": {
+        "amount": { "source": 150.00, "system": 145.00 },
+        "status": { "source": "succeeded", "system": "completed" }
+      }
+    }
+  ]
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Features
 
-## Resources
+- **Fast processing**: Uses efficient algorithms for large files
+- **Error detection**: Finds missing and mismatched transactions
+- **Type safe**: Built with TypeScript for reliability
+- **Easy to use**: Simple API with clear responses
 
-Check out a few resources that may come in handy when working with NestJS:
+## Implementation Details
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### How it works internally
 
-## Support
+1. **File Processing**: Both CSV files are parsed simultaneously using parallel processing for better performance
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+2. **Data Mapping**: Creates hash maps (key-value pairs) for fast transaction lookups:
+   - Source transactions: indexed by `providerTransactionId`
+   - System transactions: indexed by `transactionId`
 
-## Stay in touch
+3. **Three-Phase Reconciliation**:
+   - **Missing in Internal**: Finds source transactions that don't exist in system
+   - **Missing in Source**: Finds system transactions that don't exist in source
+   - **Mismatched Data**: Compares matching transactions for differences in amounts and status
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Key Technical Decisions
 
-## License
+**Fast Lookups**: Uses Map data structure for O(1) lookup time instead of O(n) array searches
+```typescript
+// Instead of slow array search:
+transactions.find(t => t.id === targetId) // O(n) time
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+// Uses fast Map lookup:
+transactionMap.get(targetId) // O(1) time
+```
+
+**Parallel Processing**: Parses both CSV files at the same time
+```typescript
+const [sourceTransactions, systemTransactions] = await Promise.all([
+  parseSourceFile(sourceFile),
+  parseSystemFile(systemFile)
+]);
+```
+
+**Financial Precision**: Uses 0.01 threshold for amount comparisons to handle floating-point precision issues
+```typescript
+if (Math.abs(amount1 - amount2) >= 0.01) {
+  // Mark as amount discrepancy
+}
+```
+
+**Memory Efficient**: Streams CSV data instead of loading entire files into memory, allowing handling of large files
+
+### Architecture
+
+```
+Controller → Service → Reconciliation Logic
+     ↓           ↓            ↓
+File Upload → CSV Parsing → Data Comparison → Results
+```
+
+- **Controller**: Handles file uploads and validation
+- **Service**: Orchestrates the reconciliation process
+- **Core Logic**: Performs the actual comparison and discrepancy detection
+
